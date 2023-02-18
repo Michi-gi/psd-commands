@@ -3,8 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image/png"
 	"os"
 	"strconv"
+
+	"internal/psdlib"
 )
 
 func main() {
@@ -44,7 +47,7 @@ func main() {
 		fmt.Print("layer: ")
 		fmt.Println(layerList)
 		fmt.Printf("target: %s\n", targetFilename)
-		Compose(*psdFilename, layerList, targetFilename)
+		psdlib.Compose(*psdFilename, layerList, targetFilename)
 
 	case "json":
 		jsonFilename := jsonComposeFlags.String("j", "", "JSON file")
@@ -57,13 +60,25 @@ func main() {
 			os.Exit(1)
 		}
 
+		targetPsd := psdlib.ReadPsd(data.PsdFilename)
 		for _, composeData := range data.ComposeList {
 			fmt.Println("compose picture from PSD")
 			fmt.Printf("from: %s\n", data.PsdFilename)
 			fmt.Print("layer: ")
 			fmt.Println(composeData.Layers)
 			fmt.Printf("target: %s\n", composeData.OutputFilename)
-			Compose(data.PsdFilename, composeData.Layers, composeData.OutputFilename)
+			compositeImage := psdlib.ComposeImage(targetPsd, composeData.Layers)
+			file, err := os.Create(composeData.OutputFilename)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "fail to create file: %s\n", composeData.OutputFilename)
+				os.Exit(1)
+			}
+			defer file.Close()
+			err = png.Encode(file, compositeImage)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "fail to encode image into PNG: %s\n", composeData.OutputFilename)
+				os.Exit(1)
+			}
 		}
 	}
 }
